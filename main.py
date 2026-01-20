@@ -6,8 +6,8 @@ import os
 import re
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, HttpUrl
-from extractor import extract_article
-from emailer import send_to_kindle
+from extractor import extract_article, AuthExpiredError
+from emailer import send_to_kindle, send_alert
 
 SENT_LOG = "sent_articles.txt"
 
@@ -100,6 +100,25 @@ def send_article_to_kindle(request: SendRequest):
             message="Article sent to Kindle!",
         )
 
+    except AuthExpiredError:
+        # Send alert email with instructions
+        send_alert(
+            subject="Twitter Cookies Expired",
+            message="""Your Twitter authentication cookies have expired.
+
+To fix this:
+1. Log into Twitter/X in your browser
+2. Open DevTools (F12) → Application → Cookies → x.com
+3. Copy the values for 'auth_token' and 'ct0'
+4. SSH into your server and update /opt/ink-drop/.env
+5. Run: systemctl restart ink-drop
+
+The article you tried to send was not processed."""
+        )
+        raise HTTPException(
+            status_code=401,
+            detail="Twitter cookies expired. Alert email sent with instructions.",
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

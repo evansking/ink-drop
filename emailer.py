@@ -92,6 +92,31 @@ def _sanitize_filename(title: str) -> str:
     return filename or "article"
 
 
+def send_alert(subject: str, message: str) -> bool:
+    """
+    Send an alert email to yourself (SMTP_USER).
+    Used for notifying about issues like expired cookies.
+    """
+    config = get_email_config()
+
+    msg = MIMEMultipart()
+    msg["From"] = config["from_email"]
+    msg["To"] = config["smtp_user"]  # Send to yourself
+    msg["Subject"] = f"[Ink Drop Alert] {subject}"
+
+    msg.attach(MIMEText(message, "plain"))
+
+    try:
+        with smtplib.SMTP(config["smtp_host"], config["smtp_port"]) as server:
+            server.starttls()
+            server.login(config["smtp_user"], config["smtp_pass"])
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Failed to send alert: {e}")
+        return False
+
+
 if __name__ == "__main__":
     # Test email sending (requires valid config)
     test_html = """

@@ -13,6 +13,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+class AuthExpiredError(Exception):
+    """Raised when Twitter authentication cookies have expired."""
+    pass
+
+
 def get_twitter_cookies() -> list[dict]:
     """Load Twitter cookies from environment variables."""
     auth_token = os.getenv("TWITTER_AUTH_TOKEN")
@@ -43,6 +48,21 @@ def get_twitter_cookies() -> list[dict]:
     ]
 
 
+def _check_auth_failure(html: str) -> bool:
+    """Check if the page indicates an authentication failure."""
+    auth_failure_indicators = [
+        "Sign in to X",
+        "Log in to X",
+        "Sign in to Twitter",
+        "Log in to Twitter",
+        'href="/login"',
+        'href="/i/flow/login"',
+        "This account doesn't exist",
+        "Something went wrong. Try reloading",
+    ]
+    return any(indicator in html for indicator in auth_failure_indicators)
+
+
 def fetch_page(url: str, save_raw: bool = False) -> tuple[str, str]:
     """Fetch page HTML using Playwright with Twitter cookies."""
     with sync_playwright() as p:
@@ -58,6 +78,10 @@ def fetch_page(url: str, save_raw: bool = False) -> tuple[str, str]:
         title = page.title()
 
         browser.close()
+
+    # Check for auth failure before saving/returning
+    if _check_auth_failure(html):
+        raise AuthExpiredError("Twitter cookies have expired or are invalid")
 
     if save_raw:
         with open("raw_page.html", "w") as f:
