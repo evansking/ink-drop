@@ -72,7 +72,15 @@ def fetch_page(url: str, save_raw: bool = False) -> tuple[str, str]:
 
         page = context.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=60000)
-        page.wait_for_timeout(5000)
+
+        # Wait for article content to load (Twitter's longform articles use this class)
+        try:
+            page.wait_for_selector('[data-testid="tweetText"], .longform-unstyled', timeout=15000)
+        except Exception:
+            pass  # Continue even if selector not found
+
+        # Additional wait for dynamic content
+        page.wait_for_timeout(3000)
 
         html = page.content()
         title = page.title()

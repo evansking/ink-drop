@@ -60,15 +60,14 @@ def send_to_kindle(title: str, html_content: str) -> bool:
     msg.attach(MIMEText(body, "plain"))
 
     # Create HTML attachment
-    # Kindle accepts .html files
+    # Kindle accepts .html files - use MIMEText for better compatibility
     filename = _sanitize_filename(title) + ".html"
 
-    attachment = MIMEBase("text", "html")
-    attachment.set_payload(html_content.encode("utf-8"))
-    encoders.encode_base64(attachment)
+    attachment = MIMEText(html_content, "html", "utf-8")
     attachment.add_header(
         "Content-Disposition",
-        f'attachment; filename="{filename}"',
+        "attachment",
+        filename=filename,
     )
     msg.attach(attachment)
 
