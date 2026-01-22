@@ -176,6 +176,9 @@ def _format_for_kindle(content_parts: list[str], title: str) -> str:
     # Clean up title
     title = re.sub(r"\s*[/|]\s*X$", "", title)
     title = re.sub(r"^\(\d+\)\s*", "", title)  # Remove notification count
+    # Remove "username on X: " prefix, extract quoted title if present
+    title = re.sub(r"^.+? on X: \"(.+)\"$", r"\1", title)
+    title = re.sub(r"^.+? on X: ", "", title)  # Fallback for unquoted titles
 
     paragraphs = "\n".join(f"<p>{part}</p>" for part in content_parts)
 
