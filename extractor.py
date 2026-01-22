@@ -171,14 +171,19 @@ def _is_ui_text(text: str) -> bool:
     return any(re.match(pattern, text_lower, re.IGNORECASE) for pattern in ui_patterns)
 
 
-def _format_for_kindle(content_parts: list[str], title: str) -> str:
-    """Format content as clean HTML for Kindle."""
-    # Clean up title
+def _clean_title(title: str) -> str:
+    """Clean up Twitter title to extract just the article name."""
     title = re.sub(r"\s*[/|]\s*X$", "", title)
     title = re.sub(r"^\(\d+\)\s*", "", title)  # Remove notification count
     # Remove "username on X: " prefix, extract quoted title if present
     title = re.sub(r"^.+? on X: \"(.+)\"$", r"\1", title)
     title = re.sub(r"^.+? on X: ", "", title)  # Fallback for unquoted titles
+    return title.strip()
+
+
+def _format_for_kindle(content_parts: list[str], title: str) -> str:
+    """Format content as clean HTML for Kindle."""
+    title = _clean_title(title)
 
     paragraphs = "\n".join(f"<p>{part}</p>" for part in content_parts)
 
@@ -251,7 +256,7 @@ def extract_article(url: str) -> dict:
     plain_text = soup.get_text(separator="\n\n", strip=True)
 
     return {
-        "title": readable_title,
+        "title": _clean_title(readable_title),
         "html": kindle_html,
         "text": plain_text,
         "url": url,
