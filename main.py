@@ -1,5 +1,5 @@
 """
-Ink Drop - FastAPI server for sending Twitter articles to Kindle.
+Ink Drop - FastAPI server for sending web articles to Kindle.
 """
 
 import os
@@ -13,7 +13,7 @@ SENT_LOG = "sent_articles.txt"
 
 
 def normalize_url(url: str) -> str:
-    """Normalize Twitter URL to canonical form for dedup."""
+    """Normalize a URL to canonical form for dedup."""
     # Convert twitter.com to x.com
     url = re.sub(r"https?://(www\.)?twitter\.com", "https://x.com", url)
     # Remove query params and trailing slash
@@ -38,8 +38,8 @@ def mark_as_sent(url: str) -> None:
 
 app = FastAPI(
     title="Ink Drop",
-    description="Push Twitter/X articles to your Kindle",
-    version="0.1.0",
+    description="Push web articles to your Kindle, images and all",
+    version="0.2.0",
 )
 
 
@@ -51,6 +51,7 @@ class SendResponse(BaseModel):
     success: bool
     title: str
     message: str
+    images: int = 0
 
 
 @app.get("/")
@@ -62,19 +63,18 @@ def health_check() -> dict:
 @app.post("/send-to-kindle", response_model=SendResponse)
 def send_article_to_kindle(request: SendRequest):
     """
-    Extract a Twitter/X article and send it to your Kindle.
+    Extract an article and send it to your Kindle.
 
-    - Fetches the article using Playwright + cookies
-    - Extracts clean, formatted content
-    - Sends as HTML attachment to your Kindle email
+    - Fetches the page using Playwright (with Twitter cookies for x.com links)
+    - Extracts clean, formatted content and downloads its inline images
+    - Sends as an EPUB attachment to your Kindle email
     """
     url = str(request.url)
 
-    # Validate it's a Twitter/X URL
-    if "twitter.com" not in url and "x.com" not in url:
+    if request.url.scheme not in ("http", "https"):
         raise HTTPException(
             status_code=400,
-            detail="URL must be a Twitter/X link",
+            detail="URL must be http or https",
         )
 
     # Check for duplicate
@@ -89,15 +89,27 @@ def send_article_to_kindle(request: SendRequest):
         article = extract_article(url)
 
         # Send to Kindle
-        send_to_kindle(article["title"], article["html"])
+        send_to_kindle(
+            article["title"],
+            article["html"],
+            images=article["images"],
+            source_url=url,
+        )
 
         # Mark as sent
         mark_as_sent(url)
 
+        image_count = len(article["images"])
         return SendResponse(
             success=True,
             title=article["title"],
-            message="Article sent to Kindle!",
+            images=image_count,
+            message=(
+                f"Article sent to Kindle with {image_count} image"
+                f"{'' if image_count == 1 else 's'}!"
+                if image_count
+                else "Article sent to Kindle!"
+            ),
         )
 
     except AuthExpiredError:
